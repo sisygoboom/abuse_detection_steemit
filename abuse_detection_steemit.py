@@ -2,6 +2,7 @@ from steem.instance import set_shared_steemd_instance
 from steem.blockchain import Blockchain
 from steem.steemd import Steemd
 from coinmarketcap import Market
+from steem.amount import Amount
 from datetime import datetime
 from pathlib import Path
 from steem import Steem
@@ -55,7 +56,7 @@ def infoDigger(opType):
     if diff.days < max_time_days and diff.days>=0:
         hours = diff.seconds/3600
         print("https://steemit.com/@" + author + "/" + permlink)
-        print(hours + " hours till payout")
+        print(str(hours) + " hours till payout")
         
         # if the difference is below max accepted hours, continue
         if hours < max_time_hours:
@@ -75,14 +76,16 @@ def infoDigger(opType):
             if vests > 0:
                 # calculate how much steem that vote has earned the author
                 rewardFund = s.get_reward_fund('post')
-                fundVests = float(rewardFund['recent_claims'])
-                fundBalance = float(rewardFund['reward_balance'].replace(" STEEM",""))
+                fundVests = float(rewardFund.get('recent_claims'))
+                fundBalance = Amount(rewardFund.get("reward_balance")).amount
                 fundPercent = vests/fundVests
-                fundReward = fundPercent*fundBalance
+                to_steem = fundPercent * fundBalance
                 
-                # calculate usd price of the reward
-                steemMC = float(coinmarketcap.ticker('STEEM', convert='USD')[0]['price_usd'])
-                usdReward = steemMC * fundReward
+                price = s.get_current_median_history_price()
+                quote = Amount(price["quote"])
+                base = Amount(price["base"])
+                conversion_rate = base.amount / quote.amount
+                usdReward = float(conversion_rate * to_steem)
                 
                 print("$" + str(usdReward))
                 print(voter)
@@ -117,7 +120,8 @@ while True:
         # blockstream
         for i in bchn.stream(filter_by=['vote']):
             infoDigger(i)
-    except:
+    except Exception as e:
+        print(e)
         # switch nodes if stream breaks
         nodes = nodes[1:] + nodes[:1]
         print("======================= node unavaliable, switching =======================")
