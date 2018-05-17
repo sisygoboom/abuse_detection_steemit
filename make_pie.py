@@ -8,37 +8,94 @@ Created on Thu Apr  5 02:08:17 2018
 import matplotlib.pyplot as plotter
 import json
 
-with open("abuse_log","r") as f:
+# Load database
+with open("abuse_log.json","r") as f:
     data = json.loads(f.read())
 
+# Declare tuple and list pairings with the 'other' categories as the first entries
 names = ('other',)
 values = [0]
 outgoing_names = ('other',)
 outgoing_quant = [0]
-include_other = False
-  
+outgoing_value = [0]
+
+#### USER CUSTOMISEABLE DATA ####
+include_other = True
+min_accuracy = 99.5
+exclude = ['busy.org']
+#################################
+
+### De-resolution module, simplifies the dataset based on 'min_accuracy'
+def deRes(accounts, vals):
+    # Get the total value of all vals
+    total = sum(vals)
+    # Create a temporary tuple and list pairing
+    acc_new = ('other',)
+    val_new = [0]
+    # Repeat for the length accounts
+    for i in range(len(accounts)):
+        # If the current value takes up sufficient % of total
+        if vals[i]/total >= (100-min_accuracy)/100:
+            # Filter only applicable pairings to the new list and tuple
+            acc_new = acc_new+ (accounts[i],)
+            val_new.append(vals[i])
+        # If the value is less than minimum and user has 'include_other = True'
+        elif include_other == True:
+            # Increase the value of the 'other' instead of creating a new entry
+            val_new[0] += vals[i]
+    
+    return acc_new, val_new
+
+### Lots of repeated code when making pie charts led to this procedure
+def renderPie(n, v, marker="$"):
+    # Initialise the pie chart
+    figureObject, axesObject = plotter.subplots()
+    # Define the settings for the pie chart
+    axesObject.pie(v,labels=n,autopct='%1.2f',startangle=90)
+    # Render the chart for viewing by the user
+    plotter.show()
+    # Print the chart information in detail for close anlysys by user
+    for i in range(len(n)):
+        print(n[i] + " = "+ marker + str(round(v[i],2)))
+
+### Collects all data on accounts which have recieved votes   
 for k,v in data['recievers'].items():
-    if v['total_lme'] > 5:
+    # Ignore data if user is in the exclusion list
+    if k not in exclude:
+        # Input the username and total earnings into the tuple/list pair
         names = names + (k,)
         values.append(v['total_lme'])
+        # Print username and total last minute earnings
         print(k + " = $" + str(round(v['total_lme'],2)))
-    elif include_other == True:
-        values[0] += v['total_lme']
-        
+
 print('\n')
 
+### Collects all data on accounts which have transmitted last minute votes
 for k,v in data['voters'].items():
-    if v > 5:
+    # Get value and quantity variables from the 'v' dictionary
+    value = v['value']
+    quantity = v['quantity']
+    # Ignore data if user is in the exclusion list
+    if k not in exclude:
+        # Input data int list and paired tuples
         outgoing_names = outgoing_names + (k,)
-        outgoing_quant.append(v)
-        print(k + " = " + str(v))
-    elif include_other == True:
-        outgoing_quant[0] += v
-    
-print("Most upvoted accounts by value (total of above $5)")
-figureObject, axesObject = plotter.subplots()
-axesObject.pie(values,labels=names,autopct='%1.2f',startangle=90)
+        outgoing_quant.append(quantity)
+        outgoing_value.append(value)
 
-print("Accounts with the most outgoing votes")
-figureObject, axesObject = plotter.subplots()
-axesObject.pie(outgoing_quant,labels=outgoing_names,autopct='%1.2f',startangle=90)
+### Reduce the resolution of the datasets so as to not congest the pie chart
+# Incoming value
+names, values = deRes(names, values)
+# Outgoing quantity         
+outgoing_names_quant, outgoing_quant = deRes(outgoing_names, outgoing_quant)
+# Outgoing value
+outgoing_names_value, outgoing_value = deRes(outgoing_names, outgoing_value)
+
+### Renders the pie charts with a title above and detailed information below
+print("\nMost upvoted accounts by value")
+renderPie(names, values)
+
+print("\nAccounts with the most outgoing votes")
+renderPie(outgoing_names_quant, outgoing_quant, marker="")
+
+print("\nAccounts with the highest value of outgoing votes")
+renderPie(outgoing_names_value, outgoing_value)
