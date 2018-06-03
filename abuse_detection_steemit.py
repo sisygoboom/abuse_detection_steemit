@@ -1,6 +1,5 @@
 from beem.instance import set_shared_steem_instance
 from beem.blockchain import Blockchain
-#from beem.steemd import Steemd
 from beem.amount import Amount
 from beem.comment import Comment
 from beem.account import Account
@@ -33,20 +32,28 @@ max_time_hours = 24
 class_cert = 0.5
 ########################################
 
-# load json database if it already exists
-if Path("abuse_log.json").is_file():
-    i = open("abuse_log.json","r").read()
-    data = json.loads(i)
-# Database doesn't already exist so we create one
-else:
-    data = {'voters':{},"recievers":{}}
+### Checks file existance, loads to dictionary if true, uses backup if false
+def dbLoader(name, backup):
+    if Path(name).is_file():
+        i = open(name,"r").read()
+        data = json.loads(i)
+        return data
+    return backup
 
-### Saves data to database
-def save():    
-    with open("abuse_log.json", "w") as abuse_log:
-        abuse_log.write(json.dumps(data))
+# Load json databases if they already exist
+data = dbLoader('abuse_log.json', {'voters':{},"recievers":{}})
+sincerity_data = dbLoader('sincerity_data.json', {})
+
+### Saves data to databases
+def save():
+    # Save the data to the files
+    for k,v in {'abuse_log.json':data, 'sincerity_data.json':sincerity_data}.items():
+        with open(k, "w") as file:
+            file.write(json.dumps(v))
         
+### Calculates role of the user based on user defined limits
 def findRole(sincerity_info):
+    # Defaults to unknown and stays this way unless one proves dominant
     role = 'unknown'
     if sincerity_info['bot_score'] > class_cert: role = 'bot'
     elif sincerity_info['spam_score'] > class_cert: role = 'spammer'
@@ -126,6 +133,10 @@ def infoDigger(operation):
                             'human_score':voter_info['classification_human_score']
                             }
                     
+                    # Update dictionaries with new sincerity data
+                    sincerity_data[author] = author_info
+                    sincerity_data[voter] = voter_info
+                    
                     # Visual user feedback
                     print("$" + str(usd_reward))
                     print("voter: @%s (%s)" % (voter, findRole(voter_info)))
@@ -146,8 +157,7 @@ def infoDigger(operation):
                         voters[voter] = dict()
                         voters[voter]['quantity'] = 1
                         voters[voter]['value'] = usd_reward
-                    # Store/update sincerity information
-                    voters[voter]['info'] = voter_info
+                    
                     
                     # Updates the total revenue from last day votes for the author
                     # also updates stats for individual posts for further data mining
@@ -189,9 +199,6 @@ def infoDigger(operation):
                         recieving_author[permlink] = dict()
                         recieving_author[permlink]['bal'] = usd_reward
                         recieving_author[permlink]['voters'] = [voter]
-                    
-                    # Store/update sincerity information
-                    recieving_author['info'] = author_info
                     
                     save()
 

@@ -7,6 +7,7 @@ Created on Thu Apr  5 02:08:17 2018
 
 import matplotlib.pyplot as plotter
 import json
+from pathlib import Path
 
 # Load database
 with open("abuse_log.json","r") as f:
@@ -99,3 +100,15 @@ renderPie(outgoing_names_quant, outgoing_quant, marker="")
 
 print("\nAccounts with the highest value of outgoing votes")
 renderPie(outgoing_names_value, outgoing_value)
+
+while True:
+    username = input("Enter username for classification info or type '$exit' to quit: ")
+    if username == '$exit': break
+    if Path('sincerity_data.json').is_file():
+        i = open('sincerity_data.json','r').read()
+        data = json.loads(i)
+    else: print("No data file")
+    if username in data:
+        print(data[username])
+    else:
+        print("User not found")
