@@ -5,7 +5,6 @@ from beem.amount import Amount
 from beem.comment import Comment
 from beem.account import Account
 from beem import Steem
-from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
 from time import sleep
@@ -23,12 +22,16 @@ s = Steem(nodes)
 bchn = Blockchain(s)
 set_shared_steem_instance(s)
 
+######## USER CUSTOMIZABLE DATA ########
 # Minimum vote worth to be considered abuse, remember that making this too high
 # will prevent you from detecting botnets with lots of smaller votes
 min_usd_reward = 0
 # Choose your max time till cashout, this is currently set to one day
 max_time_days = 1
 max_time_hours = 24
+# Choose what level of certainty is needed for a spammer/human/bot classification
+class_cert = 0.5
+########################################
 
 # load json database if it already exists
 if Path("abuse_log.json").is_file():
@@ -45,9 +48,9 @@ def save():
         
 def findRole(sincerity_info):
     role = 'unknown'
-    if sincerity_info['bot_score'] > 0.5: role = 'bot'
-    elif sincerity_info['spam_score'] > 0.5: role = 'spammer'
-    elif sincerity_info['human_score'] > 0.5: role = 'human'
+    if sincerity_info['bot_score'] > class_cert: role = 'bot'
+    elif sincerity_info['spam_score'] > class_cert: role = 'spammer'
+    elif sincerity_info['human_score'] > class_cert: role = 'human'
     return role
 
 ### Main procedure, every vote we stream is sent here to be analysed
@@ -197,15 +200,15 @@ save()
 
 ### Safetylopp
 while True:
-#    try:
+    try:
         # Blockstream (Mainloop) - streams all votes on the blockchain
         for i in bchn.stream(opNames=['vote']):
             # Check vote for eligibility
             infoDigger(i)
             
-#    except Exception as e:
-#        print(e)
-#        # Switch nodes if stream breaks
-#        nodes = nodes[1:] + nodes[:1]
-#        print("======================= node unavaliable, switching =======================")
-#        sleep(1)
+    except Exception as e:
+        print(e)
+        # Switch nodes if stream breaks
+        nodes = nodes[1:] + nodes[:1]
+        print("======================= node unavaliable, switching =======================")
+        sleep(1)
