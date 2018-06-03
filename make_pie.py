@@ -38,7 +38,7 @@ def deRes(accounts, vals):
         # If the current value takes up sufficient % of total
         if vals[i]/total >= (100-min_accuracy)/100:
             # Filter only applicable pairings to the new list and tuple
-            acc_new = acc_new+ (accounts[i],)
+            acc_new = acc_new + (accounts[i],)
             val_new.append(vals[i])
         # If the value is less than minimum and user has 'include_other = True'
         elif include_other == True:
@@ -101,13 +101,21 @@ renderPie(outgoing_names_quant, outgoing_quant, marker="")
 print("\nAccounts with the highest value of outgoing votes")
 renderPie(outgoing_names_value, outgoing_value)
 
+### Allows user to get sincerity stats on specific users.
 while True:
+    # Get username to look up
     username = input("Enter username for classification info or type '$exit' to quit: ")
+    
+    # Exit
     if username == '$exit': break
+
+    # Load sincerity db
     if Path('sincerity_data.json').is_file():
         i = open('sincerity_data.json','r').read()
         data = json.loads(i)
     else: print("No data file")
+    
+    # Display results
     if username in data:
         print(data[username])
     else:
