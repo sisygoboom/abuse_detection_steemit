@@ -119,8 +119,7 @@ Allows user to get sincerity stats on specific users.
 """
 while True:
     # Get username to look up
-    username = input("Enter username for classification \
-                     info or type '$exit' to quit: ")
+    username = input("Enter username for role info or type '$exit' to quit: ")
     
     # Exit
     if username == '$exit':

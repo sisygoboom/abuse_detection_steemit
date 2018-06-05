@@ -103,7 +103,9 @@ def info_digger(operation):
         
         # If the difference is below max accepted hours, continue
         if hours < max_time_hours:
-            ### Calculate the number of vests committed by the voter
+            """
+            Calculate the number of vests committed by the voter
+            """
             voter = operation['voter']
             # Get eight as a fraction
             weight = operation['weight']*0.0001
@@ -137,9 +139,9 @@ def info_digger(operation):
                 # Continue if usdreward is above minimum requirements
                 if usd_reward > min_usd_reward:
                     # Get spammer and bot ratings from steem sincerity
-                    r = requests.get('https://steem-sincerity.dapptools.info\
-                                     /s/api/accounts-info/%s,%s' 
-                                     % (voter, author))
+                    r = requests.get(
+                            'https://steem-sincerity.dapptools.info/s/api/accounts-info/%s,%s'
+                            % (voter, author))
                     accounts_info = r.json()['data']
                     
                     # Separate accounts
@@ -148,14 +150,14 @@ def info_digger(operation):
                     
                     # Store dictionary of bot, human and spammer scores
                     author_info = {
-                            'bot_score':author_info['pct_bot_score'],
-                            'spam_score':author_info['pct_spammer_score'],
-                            'human_score':author_info['pct_human_score']
+                            'bot_score':author_info['classification_bot_score'],
+                            'spam_score':author_info['classification_spammer_score'],
+                            'human_score':author_info['classification_human_score']
                             }
                     voter_info = {
-                            'bot_score':voter_info['pct_bot_score'],
-                            'spam_score':voter_info['pct_spammer_score'],
-                            'human_score':voter_info['pct_human_score']
+                            'bot_score':voter_info['classification_bot_score'],
+                            'spam_score':voter_info['classification_spammer_score'],
+                            'human_score':voter_info['classification_human_score']
                             }
                     
                     # Update dictionaries with new sincerity data
