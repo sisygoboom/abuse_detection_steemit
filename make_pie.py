@@ -27,10 +27,11 @@ exclude = ['busy.org']
 #################################
 
 
-"""
-De-resolution module, simplifies the dataset based on 'min_accuracy'
-"""
+
 def de_res(accounts, vals):
+    """
+    De-resolution module, simplifies the dataset based on 'min_accuracy'
+    """
     # Get the total value of all vals
     total = sum(vals)
     # Create a temporary tuple and list pairing
@@ -50,10 +51,12 @@ def de_res(accounts, vals):
     
     return acc_new, val_new
 
-"""
-Lots of repeated code when making pie charts led to this procedure
-"""
+
 def render_pie(n, v, marker="$"):
+    """
+    Lots of repeated code when making pie charts led to this procedure which
+    essentially renders the pie charts based on data supplied.
+    """
     # Initialise the pie chart
     figureObject, axesObject = plotter.subplots()
     # Define the settings for the pie chart
@@ -64,9 +67,8 @@ def render_pie(n, v, marker="$"):
     for i in range(len(n)):
         print(n[i] + " = "+ marker + str(round(v[i],2)))
 
-"""
-Collects all data on accounts which have recieved votes
-"""  
+
+# Collects all data on accounts which have recieved votes
 for k,v in data['recievers'].items():
     # Ignore data if user is in the exclusion list
     if k not in exclude:
@@ -78,9 +80,7 @@ for k,v in data['recievers'].items():
 
 print('\n')
 
-"""
-Collects all data on accounts which have transmitted last minute votes
-"""
+# Collects all data on accounts which have transmitted last minute votes
 for k,v in data['voters'].items():
     # Get value and quantity variables from the 'v' dictionary
     value = v['value']
@@ -92,9 +92,7 @@ for k,v in data['voters'].items():
         outgoing_quant.append(quantity)
         outgoing_value.append(value)
 
-"""
-Reduce the resolution of the datasets so as to not congest the pie chart
-"""
+# Reduce the resolution of the datasets so as to not congest the pie chart
 # Incoming value
 names, values = de_res(names, values)
 # Outgoing quantity         
@@ -102,9 +100,7 @@ outgoing_names_quant, outgoing_quant = de_res(outgoing_names, outgoing_quant)
 # Outgoing value
 outgoing_names_value, outgoing_value = de_res(outgoing_names, outgoing_value)
 
-"""
-Renders the pie charts with a title above and detailed information below
-"""
+# Renders the pie charts with a title above and detailed information below
 print("\nMost upvoted accounts by value")
 render_pie(names, values)
 
@@ -114,9 +110,8 @@ render_pie(outgoing_names_quant, outgoing_quant, marker="")
 print("\nAccounts with the highest value of outgoing votes")
 render_pie(outgoing_names_value, outgoing_value)
 
-"""
-Allows user to get sincerity stats on specific users.
-"""
+# Allows user to get sincerity stats on specific users.
+
 while True:
     # Get username to look up
     username = input("Enter username for role info or type '$exit' to quit: ")

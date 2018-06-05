@@ -32,10 +32,10 @@ max_time_hours = 24
 class_cert = 0.5
 ########################################
 
-"""
-Checks file existance, loads to dictionary if true, uses backup if false
-"""
 def db_loader(name, backup):
+    """
+    Checks file existance, loads to dictionary if true, uses backup if false
+    """
     if Path(name).is_file():
         i = open(name,"r").read()
         data = json.loads(i)
@@ -46,10 +46,10 @@ def db_loader(name, backup):
 data = db_loader('abuse_log.json', {'voters':{},"recievers":{}})
 sincerity_data = db_loader('sincerity_data.json', {})
 
-"""
-Saves data to databases
-"""
 def save():
+    """
+    Saves data to databases
+    """
     # Save the data to the files
     for k,v in {
             'abuse_log.json':data,
@@ -58,10 +58,10 @@ def save():
         with open(k, "w") as file:
             file.write(json.dumps(v))
         
-"""
-Calculates role of the user based on user defined limits
-"""
 def find_role(sincerity_info):
+    """
+    Calculates role of the user based on user defined limits
+    """
     # Defaults to unknown and stays this way unless one proves dominant
     
     if sincerity_info['bot_score'] > class_cert:
@@ -78,10 +78,10 @@ def find_role(sincerity_info):
         
     return role
 
-"""
-Main procedure, every vote we stream is sent here to be analysed
-"""
 def info_digger(operation):
+    """
+    Main procedure, every vote we stream is sent here to be analysed
+    """
     # Get preliminary information on the post: author and permlink
     author = operation['author']
     permlink = operation['permlink']
@@ -103,9 +103,7 @@ def info_digger(operation):
         
         # If the difference is below max accepted hours, continue
         if hours < max_time_hours:
-            """
-            Calculate the number of vests committed by the voter
-            """
+            # Calculate the number of vests committed by the voter
             voter = operation['voter']
             # Get eight as a fraction
             weight = operation['weight']*0.0001
@@ -234,9 +232,7 @@ def info_digger(operation):
 # Create datafile if it does not yet exist
 save()
 
-"""
-Safetylopp
-"""
+# Safetyloop
 while True:
     try:
         # Blockstream (Mainloop) - streams all votes on the blockchain
