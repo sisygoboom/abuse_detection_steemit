@@ -28,12 +28,14 @@ min_usd_reward = 0
 # Choose your max time till cashout, this is currently set to one day
 max_time_days = 1
 max_time_hours = 24
-# Choose what level of certainty is needed for a spammer/human/bot classification
+# Choose what level of certainty is needed for a spammer/human/bot grouping
 class_cert = 0.5
 ########################################
 
-### Checks file existance, loads to dictionary if true, uses backup if false
-def dbLoader(name, backup):
+"""
+Checks file existance, loads to dictionary if true, uses backup if false
+"""
+def db_loader(name, backup):
     if Path(name).is_file():
         i = open(name,"r").read()
         data = json.loads(i)
@@ -41,27 +43,45 @@ def dbLoader(name, backup):
     return backup
 
 # Load json databases if they already exist
-data = dbLoader('abuse_log.json', {'voters':{},"recievers":{}})
-sincerity_data = dbLoader('sincerity_data.json', {})
+data = db_loader('abuse_log.json', {'voters':{},"recievers":{}})
+sincerity_data = db_loader('sincerity_data.json', {})
 
-### Saves data to databases
+"""
+Saves data to databases
+"""
 def save():
     # Save the data to the files
-    for k,v in {'abuse_log.json':data, 'sincerity_data.json':sincerity_data}.items():
+    for k,v in {
+            'abuse_log.json':data,
+            'sincerity_data.json':sincerity_data
+            }.items():
         with open(k, "w") as file:
             file.write(json.dumps(v))
         
-### Calculates role of the user based on user defined limits
-def findRole(sincerity_info):
+"""
+Calculates role of the user based on user defined limits
+"""
+def find_role(sincerity_info):
     # Defaults to unknown and stays this way unless one proves dominant
-    role = 'unknown'
-    if sincerity_info['bot_score'] > class_cert: role = 'bot'
-    elif sincerity_info['spam_score'] > class_cert: role = 'spammer'
-    elif sincerity_info['human_score'] > class_cert: role = 'human'
+    
+    if sincerity_info['bot_score'] > class_cert:
+        role = 'bot'
+        
+    elif sincerity_info['spam_score'] > class_cert:
+        role = 'spammer'
+        
+    elif sincerity_info['human_score'] > class_cert:
+        role = 'human'
+        
+    else:
+        role = 'unknown'
+        
     return role
 
-### Main procedure, every vote we stream is sent here to be analysed
-def infoDigger(operation):
+"""
+Main procedure, every vote we stream is sent here to be analysed
+"""
+def info_digger(operation):
     # Get preliminary information on the post: author and permlink
     author = operation['author']
     permlink = operation['permlink']
@@ -71,8 +91,12 @@ def infoDigger(operation):
     week = timedelta(days=7)
     cashout = week - creation
     
-    # Continue if the difference is smaller than accepted days, but hasn't cashed out
-    # Bear in mind that a half day is the same as 0 days, a full 24 hours is needed for the day
+    """
+    Continue if the difference is smaller than accepted days, but hasn't
+    cashed out.
+    Bear in mind that a half day is the same as 0 days, a full 24 hours is
+    needed for the day.
+    """
     if cashout.days < max_time_days and cashout.days>=0:
         # Calculate difference in hours
         hours = cashout.seconds/3600
@@ -83,8 +107,7 @@ def infoDigger(operation):
             voter = operation['voter']
             # Get eight as a fraction
             weight = operation['weight']*0.0001
-            try: voter_account = Account(voter)
-            except: print(voter)
+            voter_account = Account(voter)
             # Tally vests
             vests = float(voter_account['vesting_shares'].amount)
             vests -= float(voter_account['delegated_vesting_shares'].amount)
@@ -114,7 +137,9 @@ def infoDigger(operation):
                 # Continue if usdreward is above minimum requirements
                 if usd_reward > min_usd_reward:
                     # Get spammer and bot ratings from steem sincerity
-                    r = requests.get('https://steem-sincerity.dapptools.info/s/api/accounts-info/%s,%s' % (voter, author))
+                    r = requests.get('https://steem-sincerity.dapptools.info\
+                                     /s/api/accounts-info/%s,%s' 
+                                     % (voter, author))
                     accounts_info = r.json()['data']
                     
                     # Separate accounts
@@ -123,14 +148,14 @@ def infoDigger(operation):
                     
                     # Store dictionary of bot, human and spammer scores
                     author_info = {
-                            'bot_score':author_info['classification_bot_score'],
-                            'spam_score':author_info['classification_spammer_score'],
-                            'human_score':author_info['classification_human_score']
+                            'bot_score':author_info['pct_bot_score'],
+                            'spam_score':author_info['pct_spammer_score'],
+                            'human_score':author_info['pct_human_score']
                             }
                     voter_info = {
-                            'bot_score':voter_info['classification_bot_score'],
-                            'spam_score':voter_info['classification_spammer_score'],
-                            'human_score':voter_info['classification_human_score']
+                            'bot_score':voter_info['pct_bot_score'],
+                            'spam_score':voter_info['pct_spammer_score'],
+                            'human_score':voter_info['pct_human_score']
                             }
                     
                     # Update dictionaries with new sincerity data
@@ -139,14 +164,15 @@ def infoDigger(operation):
                     
                     # Visual user feedback
                     print("$" + str(usd_reward))
-                    print("voter: @%s (%s)" % (voter, findRole(voter_info)))
-                    print("author: @%s (%s)" % (author, findRole(author_info)))
+                    print("voter: @%s (%s)" % (voter, find_role(voter_info)))
+                    print("author: @%s (%s)" % (author, find_role(author_info)))
                     print("https://steemit.com/@%s/%s\n" % (author, permlink))
                     
-                    
-                    # Adds a tally to the voters # of outgoing last day votes
-                    # also, calculates the cumulative USD reward of all LM votes
-                    # both incoming and outgoing
+                    """
+                    Adds a tally to the voters # of outgoing last day votes
+                    also, calculates the cumulative USD reward of all LM votes
+                    both incoming and outgoing
+                    """
                     voters = data['voters']
                     
                     if voter in voters:
@@ -158,10 +184,11 @@ def infoDigger(operation):
                         voters[voter]['quantity'] = 1
                         voters[voter]['value'] = usd_reward
                     
-                    
-                    # Updates the total revenue from last day votes for the author
-                    # also updates stats for individual posts for further data mining
-                    # Get current recievers database
+                    """
+                    Updates the total revenue from last day votes for the 
+                    author, also updates stats for individual posts for
+                    further data mining
+                    """
                     recievers = data['recievers']
                     
                     if author in recievers:
@@ -205,17 +232,19 @@ def infoDigger(operation):
 # Create datafile if it does not yet exist
 save()
 
-### Safetylopp
+"""
+Safetylopp
+"""
 while True:
     try:
         # Blockstream (Mainloop) - streams all votes on the blockchain
         for i in bchn.stream(opNames=['vote']):
             # Check vote for eligibility
-            infoDigger(i)
+            info_digger(i)
             
     except Exception as e:
         print(e)
         # Switch nodes if stream breaks
         nodes = nodes[1:] + nodes[:1]
-        print("======================= node unavaliable, switching =======================")
+        print("=============== node unavaliable, switching ===============")
         sleep(1)

@@ -26,8 +26,11 @@ min_accuracy = 99.5
 exclude = ['busy.org']
 #################################
 
-### De-resolution module, simplifies the dataset based on 'min_accuracy'
-def deRes(accounts, vals):
+
+"""
+De-resolution module, simplifies the dataset based on 'min_accuracy'
+"""
+def de_res(accounts, vals):
     # Get the total value of all vals
     total = sum(vals)
     # Create a temporary tuple and list pairing
@@ -47,8 +50,10 @@ def deRes(accounts, vals):
     
     return acc_new, val_new
 
-### Lots of repeated code when making pie charts led to this procedure
-def renderPie(n, v, marker="$"):
+"""
+Lots of repeated code when making pie charts led to this procedure
+"""
+def render_pie(n, v, marker="$"):
     # Initialise the pie chart
     figureObject, axesObject = plotter.subplots()
     # Define the settings for the pie chart
@@ -59,7 +64,9 @@ def renderPie(n, v, marker="$"):
     for i in range(len(n)):
         print(n[i] + " = "+ marker + str(round(v[i],2)))
 
-### Collects all data on accounts which have recieved votes   
+"""
+Collects all data on accounts which have recieved votes
+"""  
 for k,v in data['recievers'].items():
     # Ignore data if user is in the exclusion list
     if k not in exclude:
@@ -71,7 +78,9 @@ for k,v in data['recievers'].items():
 
 print('\n')
 
-### Collects all data on accounts which have transmitted last minute votes
+"""
+Collects all data on accounts which have transmitted last minute votes
+"""
 for k,v in data['voters'].items():
     # Get value and quantity variables from the 'v' dictionary
     value = v['value']
@@ -83,37 +92,46 @@ for k,v in data['voters'].items():
         outgoing_quant.append(quantity)
         outgoing_value.append(value)
 
-### Reduce the resolution of the datasets so as to not congest the pie chart
+"""
+Reduce the resolution of the datasets so as to not congest the pie chart
+"""
 # Incoming value
-names, values = deRes(names, values)
+names, values = de_res(names, values)
 # Outgoing quantity         
-outgoing_names_quant, outgoing_quant = deRes(outgoing_names, outgoing_quant)
+outgoing_names_quant, outgoing_quant = de_res(outgoing_names, outgoing_quant)
 # Outgoing value
-outgoing_names_value, outgoing_value = deRes(outgoing_names, outgoing_value)
+outgoing_names_value, outgoing_value = de_res(outgoing_names, outgoing_value)
 
-### Renders the pie charts with a title above and detailed information below
+"""
+Renders the pie charts with a title above and detailed information below
+"""
 print("\nMost upvoted accounts by value")
-renderPie(names, values)
+render_pie(names, values)
 
 print("\nAccounts with the most outgoing votes")
-renderPie(outgoing_names_quant, outgoing_quant, marker="")
+render_pie(outgoing_names_quant, outgoing_quant, marker="")
 
 print("\nAccounts with the highest value of outgoing votes")
-renderPie(outgoing_names_value, outgoing_value)
+render_pie(outgoing_names_value, outgoing_value)
 
-### Allows user to get sincerity stats on specific users.
+"""
+Allows user to get sincerity stats on specific users.
+"""
 while True:
     # Get username to look up
-    username = input("Enter username for classification info or type '$exit' to quit: ")
+    username = input("Enter username for classification \
+                     info or type '$exit' to quit: ")
     
     # Exit
-    if username == '$exit': break
+    if username == '$exit':
+        break
 
     # Load sincerity db
     if Path('sincerity_data.json').is_file():
         i = open('sincerity_data.json','r').read()
         data = json.loads(i)
-    else: print("No data file")
+    else:
+        print("No data file")
     
     # Display results
     if username in data:
