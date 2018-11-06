@@ -7,30 +7,42 @@ from beem import Steem
 from datetime import timedelta
 from pathlib import Path
 from time import sleep
+from threading import Thread
 import json
 import requests
 
+"""
+The abuse detection library gives the user the ability to collect, store
+and live view potentially mallicious last minute upvotes.
+"""
 class AbuseDetection:
-    """
-    The abuse detection library gives the user the ability to collect, store
-    and live view potentially mallicious last minute upvotes.
-    """
     
+    """
+    Initialise class.
+    
+    @param min_usd_reward       minimum vote value for vote to be considered
+                                abuse, defaults to 0
+    @param max_time_hours       time in hours till cashout for a vote to be 
+                                considered abuse, defaults to 24 hours
+    @param cetainty             sincerity certainty, defaults to 0.5 (50%)
+    @param containing_folder    location of .json DBs, defaults to current dir
+                                remember to enter raw text for directories
+                                e.g. r'C:/users/sisygoboom'
+    """
     def __init__(
             self,
             min_usd_reward=0,
-            max_time_hours=24,
+            max_time_hours=36,
             certainty=0.5,
-            containing_folder=''):
-        """
-        Initialise the abuse detection class.
+            containing_folder=r''):
+        # initialise variables
+        self.certainty = certainty
+        self.min_usd_reward = min_usd_reward
+        self.max_time_hours = max_time_hours
+        self.containing_folder = containing_folder
+        self.running = False
         
-        Certainty defaults to 50%, certainty is the min bot/human/spammer score
-        needed to definitively fall into one of the classes.
-        
-        Containing folder is where you have stored your .json DBs.
-        """
-        
+        # declare nodes
         self.nodes = [
                 'https://api.steemit.com',
                 'https://rpc.buildteam.io',
@@ -39,38 +51,36 @@ class AbuseDetection:
                 'https://steemd.steemitstage.com',
                 'https://steemd.steemgigs.org'
                 ]
-        s = Steem(self.nodes)
-        self.bchn = Blockchain(s)
-        set_shared_steem_instance(s)
-        self.s = s
         
-        containing_folder.replace('\\','/')
-        if not containing_folder.endswith('/'):
-            containing_folder += '/'
+        # create steem instances
+        self.s = Steem(self.nodes)
+        self.bchn = Blockchain(self.s)
+        set_shared_steem_instance(self.s)
         
-        self.certainty = certainty
-        self.min_usd_reward = min_usd_reward
-        self.max_time_hours = max_time_hours
-        self.containing_folder = containing_folder
+        self.containing_folder.replace('\\','/')
+        if not self.containing_folder.endswith('/'):
+            self.containing_folder += '/'
         
+        # attempt to load databases
         try:
             self.data = self.db_loader(
-                    containing_folder + 'abuse_log.json'
+                    self.containing_folder + 'abuse_log.json'
                     )
             self.sincerity_data = self.db_loader(
-                    containing_folder + 'sincerity_data.json'
+                    self.containing_folder + 'sincerity_data.json'
                     )
+        
+        # create new dictionaries in absence of existing databases
         except:
             self.data = {'voters':{},"recievers":{}}
             self.sincerity_data = dict()
-            
-        self.save()
+            self.save()
     
     """
     Stream the steem blockchain and sends every vote transaction off to be
     checked. Comes with built in exception handling.
-    """
-    def stream(self):        
+    """    
+    def _stream(self):        
         # Safetyloop
         while True:
             try:
@@ -85,11 +95,18 @@ class AbuseDetection:
                 self.nodes = self.nodes[1:] + self.nodes[:1]
                 print("============ node unavaliable, switching ============")
                 sleep(1)
+                
+    def stream(self):
+        if not self.running:
+            self.stream_thread = Thread(target=self._stream)
+            self.stream_thread.start()
+            self.running = True
     
     """
     Check file existance, loads to dictionary if true, use backup if false.
     
     @param filepath
+    
     @return data
     """
     def db_loader(self, filepath):        
@@ -98,11 +115,11 @@ class AbuseDetection:
             data = json.loads(i)
             return data
         raise FileNotFoundError('File does not exist.')
-        
+    
+    """
+    Saves data to databases
+    """
     def save(self):
-        """
-        Saves data to databases
-        """
         # Save the data to the files
         for k,v in {
                 self.containing_folder + 'abuse_log.json':self.data,
@@ -110,12 +127,21 @@ class AbuseDetection:
                 }.items():
             with open(k, "w") as file:
                 file.write(json.dumps(v))
-                
+                if not file.closed: file.close()
+    
+    """
+    Calculates role of the user based on user defined limits and steem
+    sincerity data
+    
+    @param sincerity_info
+    
+    @return classification
+    """
     def find_role(self, sincerity_info):
-        """
-        Calculates role of the user based on user defined limits
-        """
         # Defaults to unknown and stays this way unless one proves dominant
+        
+        if sincerity_info['bot_score'] == None:
+            return 'no information'
         
         if sincerity_info['bot_score'] > self.certainty:
             return 'bot'
@@ -129,30 +155,46 @@ class AbuseDetection:
         else:
             return 'unknown'
 
-
+    """
+    Main procedure, every vote we stream is sent here to be analysed, can be 
+    used to analyse individual operations as well
+    
+    @param operation    the blockchain operation object to be analyed
+    """
     def info_digger(self, operation):
-        """
-        Main procedure, every vote we stream is sent here to be analysed
-        """
+        # get operation details
         self.author = operation['author']
         self.permlink = operation['permlink']
         self.voter = operation['voter']
+        
+        # validate the opeation and get usd value of vote
         usd_reward = self._check(operation)
+        
+        # if operation validated, add the operation details to the databases
         if usd_reward != False:
-            self._sincerity_update(
-                    usd_reward, self.voter, self.author, self.permlink
-                    )
-            self._update_db(
-                    usd_reward, self.voter, self.author, self.permlink
-                    )
+            self._sincerity_update(usd_reward)
+            self._update_db(usd_reward)
             self.save()
         
+    """
+    Starts the pocess of validating an operation
+    
+    @param operation
+    
+    @return usd_reward  returns either boolean False (invalid op) or float 
+                        (value of vote)
+    """
     def _check(self, operation):
-        usd_reward = self.age_check(operation)
+        usd_reward = self._age_check(operation)
         return usd_reward
     
     """
     Checks to make sure the post voted on is old enough to be considered abuse
+    
+    @param operation
+    
+    @return usd_reward  returns either boolean False (invalid op) or float 
+                        (value of vote)
     """
     def _age_check(self, operation):
         # Get preliminary information on the post: author and permlink
@@ -161,11 +203,6 @@ class AbuseDetection:
         creation = Comment(self.author + "/" + self.permlink).time_elapsed()
         week = timedelta(days=7)
         cashout = week - creation
-        
-        # Continue if the difference is smaller than accepted days, but hasn't
-        # cashed out.
-        # Bear in mind that a half day is the same as 0 days, a full 24 hours
-        # is needed for the day.
     
         # Calculate difference in hours
         hours = cashout.total_seconds()/3600
@@ -176,19 +213,31 @@ class AbuseDetection:
         else:
             return False
         
+    """
+    Work out how many vests the vote was worth, return flase if value is
+    negative
+    
+    @param operation
+    
+    @return usd_reward  returns either boolean False (invalid op) or float 
+                        (value of vote)
+    """
     def _vest_check(self, operation):
         # Calculate the number of vests committed by the voter
         
-        # Get eight as a fraction
+        # Get weight as a fraction
         weight = operation['weight']*0.0001
         voter_account = Account(self.voter)
+        
         # Tally vests
         vests = float(voter_account['vesting_shares'].amount)
         vests -= float(voter_account['delegated_vesting_shares'].amount)
         vests += float(voter_account['received_vesting_shares'].amount)
+        
         # Vests if upvote was 100%
         vests *= 1000000
         vests *= 0.02
+        
         # Multiply by weight (fraction)
         vests *= weight
         
@@ -197,7 +246,15 @@ class AbuseDetection:
             return self._usd_check(vests)
         else:
             return False
-            
+        
+    """
+    Work out how much the vote was worth in USD
+    
+    @param vests
+    
+    @return usd_reward  returns either boolean False (invalid op) or float 
+                        (value of vote)
+    """
     def _usd_check(self, vests):
         # Calculate how much steem that vote has earned the author
         reward_fund = self.s.get_reward_funds('post')
@@ -213,13 +270,25 @@ class AbuseDetection:
         conversion_rate = base.amount / quote.amount
         usd_reward = float(conversion_rate * to_steem)
         
-        # Continue if usdreward is above minimum requirements
+        # Continue if usd_reward is above minimum requirements
         if usd_reward > self.min_usd_reward:
             return usd_reward
         else:
             return False
         
-    def _sincerity_update(self, usd_reward, voter, author, permlink):
+    """
+    When a new vote opeation has been verified, this module calls on steem
+    sincerity to update the local database on them, as well as giving users
+    viual feedback on what votes have been cast and whether they're by/to bots,
+    humans, or spammers
+    
+    @param usd_reward
+    """
+    def _sincerity_update(self, usd_reward):
+        # initialise variables
+        voter = self.voter
+        author = self.author
+        permlink = self.permlink
         
         r = requests.get(
                 'https://steem-sincerity.dapptools.'
@@ -252,41 +321,50 @@ class AbuseDetection:
         # Update dictionaries with new sincerity data
         self.sincerity_data[author] = author_info
         self.sincerity_data[voter] = voter_info
+        print(author)
+        print(author_info)
+        print(voter)
+        print(voter_info)
         
         # Visual user feedback
         print("$" + str(usd_reward))
-        print("voter: @%s (%s)" % 
-              (voter, self.find_role(voter_info)))
-        print("author: @%s (%s)" % 
-              (author, self.find_role(author_info)))
-        print("https://steemit.com/@%s/%s\n" % 
-              (author, permlink))
-        
-    def _update_db(self, usd_reward, voter, author, permlink):
+        print("voter: @%s (%s)" % (voter, self.find_role(voter_info)))
+        print("author: @%s (%s)" % (author, self.find_role(author_info)))
+        print("https://steemit.com/@%s/%s\n" % (author, permlink))
+    
+    """
+    Updates the total revenue from last day votes for the author as well as
+    value given out by voters, as well as quantities of last minute votes, also
+    updates stats for individual posts for further data mining
+    
+    @param usd_reward
+    @param voter
+    @param author
+    @param permlink
+    """
+    def _update_db(self, usd_reward):
+        # initialise variables
+        voter = self.voter
+        author = self.author
+        permlink = self.permlink
         voters = self.data['voters']
         recievers = self.data['recievers']
         
+        # update voter records
         if voter in voters:
             voters[voter]['quantity'] += 1
             voters[voter]['value'] += usd_reward
-        # Create a new entry for unknown user
+        # create a new entry for unknown user
         else:
             voters[voter] = dict()
             voters[voter]['quantity'] = 1
-            voters[voter]['value'] = usd_reward
-        
-        """
-        Updates the total revenue from last day votes for the 
-        author, also updates stats for individual posts for
-        further data mining
-        """
-        
+            voters[voter]['value'] = usd_reward        
         
         if author in recievers:
-            # Get data for current author
+            # get data for current author
             recieving_author = recievers[author]
             
-            # Specific post is already in database
+            # specific post is already in database
             if permlink in recieving_author:
                 # Get data for specific post
                 recieving_link = recieving_author[permlink]
@@ -304,16 +382,17 @@ class AbuseDetection:
             
             # Update total last minute earnings for author
             recieving_author['total_lme'] += usd_reward
+            recieving_author['total_votes'] += 1
             # Add new voter to list
             recieving_link['voters'].append(voter)
         
-        # Author is not in the database yet
         else:
             # Create dictionary for new author
             recievers[author] = dict()
             recieving_author = recievers[author]
             # Populate with necessary information
             recieving_author['total_lme'] = usd_reward
+            recieving_author['total_votes'] = 1
             recieving_author[permlink] = dict()
             recieving_author[permlink]['bal'] = usd_reward
             recieving_author[permlink]['voters'] = [voter]
