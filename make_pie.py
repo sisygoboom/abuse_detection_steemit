@@ -8,30 +8,39 @@ Created on Thu Apr  5 02:08:17 2018
 import matplotlib.pyplot as plotter
 import json
 import requests
-data = {}
-in_file = False
 
+"""
+Class for interpreting and presenting data collected
+
+For dictionary format data:
+    "in_file=False"
+    
+For data stored in a file:
+    "data" and "sincerity_data" should be a raw string path and filename
+    "in_file=True
+"""
 class ProcessData:
-    """
-    Class for interpreting and presenting data collected
     
-    For dictionary format data:
-        "in_file=False"
-        
-    For data stored in a file:
-        "data" and "sincerity_data" should be a path and filename
-        "in_file=True
     """
+    Initialise new instance of ProcessData class
     
-    def __init__(self, data,
+    @param data
+    @param in_file
+    @param include_other
+    @param min_accuracy
+    @param exclude
+    """
+    def __init__(self,
+                 data,
                  sincerity_data,
                  in_file=False,
                  include_other=True,
-                 min_accuracy=99.5,
+                 min_accuracy=99,
                  exclude=['busy.org']):
-        """
-        Initialise new instance of ProcessData class
-        """
+        # initialise variables
+        self.include_other = include_other
+        self.min_accuracy = min_accuracy
+        self.exclude = exclude
         
         # Load databases from file
         if in_file == True:
@@ -45,65 +54,85 @@ class ProcessData:
             self.data = data
             self.sincerity_data = sincerity_data        
         
-        # Globalise settings
-        self.include_other = include_other
-        self.min_accuracy = min_accuracy
-        self.exclude = exclude
-
-        
+    """
+    Make a pie chart for users with the highest value of incoming votes.
+    """
     def make_pie_incoming_value(self):
-        """
-        Make a pie chart for users with the highest value of incoming votes.
-        """
-
-        refined = self._de_res(self.get_incoming_value())
+        refined = self._de_res(self.get_incoming(val=True))
         self._render_pie(refined)
-        
+    
+    """
+    Make a pie chart for users with the highes quantity of incoming votes
+    """
+    def make_pie_incoming_quantity(self):
+        refined = self._de_res(self.get_incoming(quant=True))
+        self._render_pie(refined, marker="")
+    
+    """
+    Make a pie chart for highest quantities of outgoing votes.
+    """
     def make_pie_outgoing_quantity(self):
-        """
-        Make a pie chart for highest quantities of outgoing votes.
-        """
-
         refined = self._de_res(self.get_outgoing(quant=True))
         self._render_pie(refined, marker="")
         
+    """
+    Make a pie chart for highest value of outgoing votes.
+    """
     def make_pie_outgoing_value(self):
-        """
-        Make a pie chart for highest value of outgoing votes.
-        """
-        
         refined = self._de_res(self.get_outgoing(val=True))
         self._render_pie(refined)
-        
-    def get_incoming_value(self):
-        """
-        Collects all data on accounts which have recieved last minute votes
-        and updates the pairings for pie chart creation. Returns dictionary
-        version of pairings.
-        """
-        
+    
+    """
+    Collects all data on accounts which have recieved last minute votes
+    and updates the pairings for pie chart creation. Returns dictionary
+    version of pairings.
+    
+    @param val
+    @param quant
+    
+    @return incoming_value, incoming_votes
+    @return incoming_value
+    @return incoming_votes
+    """
+    def get_incoming(self, val=False, quant=False):
         # Create an empty, temporary dictionary
-        iv = dict()
+        incoming_value = dict()
+        incoming_votes = dict()
         
         # Accumulate and filter all accounts which recieved lm votes and are 
         # not in the exclude list
         for k,v in self.data['recievers'].items():
             if k not in self.exclude:
-                # Add to dictionary (rounded to 2 decimal places)
-                iv[k] = round(v['total_lme'], 2)
+                # Add to dictionaries
+                if val:
+                    incoming_value[k] = round(v['total_lme'], 2)
+                if quant:
+                    incoming_votes[k] = v['total_votes']
+                    
                 
-        return iv
+        if quant and val:
+            return incoming_value, incoming_votes
+        elif val:
+            return incoming_value
+        elif quant:
+            return incoming_votes
     
+    """
+    Collects all data on accounts which have transmitted last minute votes
+    and updates parings for pie charts. Optional return of data in
+    dictionary form.
+    
+    @param val
+    @param quant
+    
+    @return outgoing_value, outgoing_quantity
+    @return outgoing_value
+    @return outgoing_quantity
+    """
     def get_outgoing(self, val=False, quant=False):
-        """
-        Collects all data on accounts which have transmitted last minute votes
-        and updates parings for pie charts. Optional return of data in
-        dictionary form.
-        """
-        
         # Declare dictionaries to be returned
-        ov = dict()
-        oq = dict()
+        outgoing_value = dict()
+        outgoing_quantity = dict()
         
         for k,v in self.data['voters'].items():
             # Get value and quantity variables from the 'v' dictionary
@@ -112,29 +141,33 @@ class ProcessData:
             # Ignore data if user is in the exclusion list
             if k not in self.exclude:
                 # Add filtered data into the new dictionaries
-                ov[k] = round(value, 2)
-                oq[k] = quantity
+                outgoing_value[k] = round(value, 2)
+                outgoing_quantity[k] = quantity
                
         if val == True:
             if quant == True:
                 # Return both dictionaries
-                return ov, oq
+                return outgoing_value, outgoing_quantity
             # Return just value dictionary
-            return ov
+            return outgoing_value
         elif quant == True:
             # Return just quantity dictionary
-            return oq
-        
+            return outgoing_quantity
+    
+    """
+    Returns a dictionary containing sincerity bot/human/spammer scores.
+    
+    @param username
+    
+    @return scores
+    """
     def sincerity_lookup(self, username):
-        """
-        Returns a dictionary containing sincerity bot/human/spammer scores.
-        """
-        
         # Local database present
         if self.sincerity_data:
             # User is in database, return data
             if username in self.sincerity_data:
-                return self.sincerity_data[username]
+                scores = self.sincerity_data[username]
+                return scores
             
         # Database not loaded in or user not in database
         try:
@@ -158,34 +191,41 @@ class ProcessData:
                               'loading in a sincerity db, checking '
                               'spelling or connecting to the internet.')
     
+    """
+    De-resolution module, simplifies the dataset based on 'min_accuracy'
+    
+    @param dictionary
+    
+    @return new_dictionary
+    """
     def _de_res(self, dictionary):
-        """
-        De-resolution module, simplifies the dataset based on 'min_accuracy'
-        """
-        
         # Get the total value of all vals
         total = sum(dictionary.values())
         # Create a temporary tuple and list pairing
-        new = {'other':0}
-        # Repeat for the length accounts
+        new_dictionary = {'other':0}
+                    
+        # Repeat for every account
         for accounts, vals in dictionary.items():
             # If the current value takes up sufficient % of total
             if vals/total >= (100-self.min_accuracy)/100:
                 # Filter only applicable pairings to the new list and tuple
-                new[accounts] = vals
+                new_dictionary[accounts] = vals
                 
             # If value is less than minimum and user has 'include_other = True'
             elif self.include_other == True:
                 # Increase the value of the 'other' segment
-                new['other'] += vals
-        return new
+                new_dictionary['other'] += vals
+                
+        return new_dictionary
     
+    """
+    Lots of repeated code when making pie charts led to this procedure 
+    which essentially renders the pie charts based on data supplied.
+    
+    @param data
+    @param marker
+    """
     def _render_pie(self, data, marker="$"):
-        """
-        Lots of repeated code when making pie charts led to this procedure 
-        which essentially renders the pie charts based on data supplied.
-        """
-        
         # Split the dictionary into a list and tuple pair
         n, v = self._dict_to_pairing(data)
         
@@ -199,13 +239,17 @@ class ProcessData:
         # Print the chart information below the pie for close anlysys by user
         for i in range(len(n)):
             print(n[i] + " = " + marker + str(round(v[i],2)))
-        
+    
+    """
+    Takes a dictionary of account names and associated values and returns
+    a list and tuple pair ready for pie rendering.
+    
+    @param dictionary
+    
+    @return names
+    @return vals
+    """
     def _dict_to_pairing(self, dictionary):
-        """
-        Takes a dictionary of account names and associated values and returns
-        a list and tuple pair ready for pie rendering.
-        """
-        
         # Declare new list and tuple pair
         names = tuple()
         vals = list()
