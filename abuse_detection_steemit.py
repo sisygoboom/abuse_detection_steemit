@@ -5,6 +5,7 @@ from beem.comment import Comment
 from beem.account import Account
 from beem import Steem
 from datetime import timedelta
+from make_pie import ProcessData
 from pathlib import Path
 from time import sleep
 from threading import Thread
@@ -140,20 +141,21 @@ class AbuseDetection:
     def find_role(self, sincerity_info):
         # Defaults to unknown and stays this way unless one proves dominant
         
-        if sincerity_info['bot_score'] == None:
-            return 'no information'
+        try:
+            if sincerity_info['bot_score'] > self.certainty:
+                return 'bot'
+                
+            elif sincerity_info['spam_score'] > self.certainty:
+                return 'spammer'
+                
+            elif sincerity_info['human_score'] > self.certainty:
+                return 'human'
+                
+            else:
+                return 'unknown'
         
-        if sincerity_info['bot_score'] > self.certainty:
-            return 'bot'
-            
-        elif sincerity_info['spam_score'] > self.certainty:
-            return 'spammer'
-            
-        elif sincerity_info['human_score'] > self.certainty:
-            return 'human'
-            
-        else:
-            return 'unknown'
+        except:
+            return 'no information'
 
     """
     Main procedure, every vote we stream is sent here to be analysed, can be 
@@ -175,6 +177,31 @@ class AbuseDetection:
             self._sincerity_update(usd_reward)
             self._update_db(usd_reward)
             self.save()
+            
+    """
+    Creates an instance of ProcessData from make_pie.py which allows you to
+    create pie charts all through the same AbuseDetection instance. This allows
+    for the data to be passed easily and saves the user from finding and
+    entering long directories.
+    
+    @param include_other
+    @param min_accuracy
+    @param exclude
+    
+    @return mp
+    """
+    def piecharts(self,
+                  include_other=True,
+                  min_accuracy=99,
+                  exclude=['busy.org']):
+        d = self.data
+        sd = self.sincerity_data
+        mp = ProcessData(data=d,
+                         sincerity_data=sd,
+                         include_other=include_other,
+                         min_accuracy=min_accuracy,
+                         exclude=exclude)
+        return mp
         
     """
     Starts the pocess of validating an operation
