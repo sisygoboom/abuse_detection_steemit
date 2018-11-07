@@ -96,7 +96,11 @@ class AbuseDetection:
                 self.nodes = self.nodes[1:] + self.nodes[:1]
                 print("============ node unavaliable, switching ============")
                 sleep(1)
-                
+    
+    """
+    Starts a thread of the stream procedure so that other functions can be 
+    called while it is running
+    """
     def stream(self):
         if not self.running:
             self.stream_thread = Thread(target=self._stream)
