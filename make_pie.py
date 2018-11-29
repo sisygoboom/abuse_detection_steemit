@@ -7,7 +7,6 @@ Created on Thu Apr  5 02:08:17 2018
 
 import matplotlib.pyplot as plotter
 import json
-import requests
 
 """
 Class for interpreting and presenting data collected
@@ -16,7 +15,7 @@ For dictionary format data:
     "in_file=False"
     
 For data stored in a file:
-    "data" and "sincerity_data" should be a raw string path and filename
+    "data" should be a raw string path and filename
     "in_file=True
 """
 class ProcessData:
@@ -32,7 +31,6 @@ class ProcessData:
     """
     def __init__(self,
                  data,
-                 sincerity_data,
                  in_file=False,
                  include_other=True,
                  min_accuracy=99,
@@ -46,13 +44,10 @@ class ProcessData:
         if in_file == True:
             with open(data) as f:
                 self.data = json.loads(f.read())
-            with open(sincerity_data) as f:
-                self.sincerity_data = json.loads(f.read())
                 
         # Data already in dictionary format, no need to load from file
         else:
-            self.data = data
-            self.sincerity_data = sincerity_data        
+            self.data = data   
         
     """
     Make a pie chart for users with the highest value of incoming votes.
@@ -153,43 +148,6 @@ class ProcessData:
         elif quant == True:
             # Return just quantity dictionary
             return outgoing_quantity
-    
-    """
-    Returns a dictionary containing sincerity bot/human/spammer scores.
-    
-    @param username
-    
-    @return scores
-    """
-    def sincerity_lookup(self, username):
-        # Local database present
-        if self.sincerity_data:
-            # User is in database, return data
-            if username in self.sincerity_data:
-                scores = self.sincerity_data[username]
-                return scores
-            
-        # Database not loaded in or user not in database
-        try:
-            # Get data from sincerity site
-            r = requests.get(
-                    'https://steem-sincerity.dapptools.info'
-                    '/s/api/accounts-info/' + username
-                    )
-            r = r.json()['data'][username]
-            scores = {
-                    'bot_score':r['classification_bot_score'],
-                    'spam_score':r['classification_spammer_score'],
-                    'human_score':r['classification_human_score']
-                    }
-            return scores
-        
-        # Both online and offline options failed, ask user to check command
-        except Exception as e:
-            print(e)
-            raise LookupError('User not found locally or online. Try '
-                              'loading in a sincerity db, checking '
-                              'spelling or connecting to the internet.')
     
     """
     De-resolution module, simplifies the dataset based on 'min_accuracy'

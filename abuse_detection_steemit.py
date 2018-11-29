@@ -9,7 +9,7 @@ from make_pie import ProcessData
 from pathlib import Path
 from time import sleep
 from threading import Thread
-import json, requests, os
+import json, os
 
 """
 The abuse detection library gives the user the ability to collect, store
@@ -24,7 +24,6 @@ class AbuseDetection:
                                 abuse, defaults to 0
     @param max_time_hours       time in hours till cashout for a vote to be 
                                 considered abuse, defaults to 24 hours
-    @param cetainty             sincerity certainty, defaults to 0.5 (50%)
     @param containing_folder    location of .json DBs, defaults to current dir
                                 remember to enter raw text for directories
                                 e.g. r'C:/users/sisygoboom'
@@ -33,10 +32,8 @@ class AbuseDetection:
             self,
             min_usd_reward=0,
             max_time_hours=36,
-            certainty=0.5,
             containing_folder=None):
         # initialise variables
-        self.certainty = certainty
         self.min_usd_reward = min_usd_reward
         self.max_time_hours = max_time_hours
         self.containing_folder = containing_folder
@@ -66,14 +63,10 @@ class AbuseDetection:
             self.data = self.db_loader(
                     self.containing_folder + 'abuse_log.json'
                     )
-            self.sincerity_data = self.db_loader(
-                    self.containing_folder + 'sincerity_data.json'
-                    )
         
         # create new dictionaries in absence of existing databases
         except:
             self.data = {'voters':{},"recievers":{}}
-            self.sincerity_data = dict()
             self.save()
     
     """
@@ -127,40 +120,11 @@ class AbuseDetection:
         # Save the data to the files
         for k,v in {
                 self.containing_folder
-                + 'abuse_log.json':self.data,
-                self.containing_folder
-                + 'sincerity_data.json':self.sincerity_data
+                + 'abuse_log.json':self.data
                 }.items():
             with open(k, "w") as file:
                 file.write(json.dumps(v))
                 if not file.closed: file.close()
-    
-    """
-    Calculates role of the user based on user defined limits and steem
-    sincerity data
-    
-    @param sincerity_info
-    
-    @return classification
-    """
-    def find_role(self, sincerity_info):
-        # Defaults to unknown and stays this way unless one proves dominant
-        
-        try:
-            if sincerity_info['bot_score'] > self.certainty:
-                return 'bot'
-                
-            elif sincerity_info['spam_score'] > self.certainty:
-                return 'spammer'
-                
-            elif sincerity_info['human_score'] > self.certainty:
-                return 'human'
-                
-            else:
-                return 'unknown'
-        
-        except:
-            return 'no information'
 
     """
     Main procedure, every vote we stream is sent here to be analysed, can be 
@@ -179,7 +143,6 @@ class AbuseDetection:
         
         # if operation validated, add the operation details to the databases
         if usd_reward != False:
-            self._sincerity_update(usd_reward)
             self._update_db(usd_reward)
             self.save()
             
@@ -200,9 +163,7 @@ class AbuseDetection:
                   min_accuracy=99,
                   exclude=['busy.org']):
         d = self.data
-        sd = self.sincerity_data
         mp = ProcessData(data=d,
-                         sincerity_data=sd,
                          include_other=include_other,
                          min_accuracy=min_accuracy,
                          exclude=exclude)
@@ -307,62 +268,6 @@ class AbuseDetection:
             return usd_reward
         else:
             return False
-        
-    """
-    When a new vote opeation has been verified, this module calls on steem
-    sincerity to update the local database on them, as well as giving users
-    viual feedback on what votes have been cast and whether they're by/to bots,
-    humans, or spammers
-    
-    @param usd_reward
-    """
-    def _sincerity_update(self, usd_reward):
-        # initialise variables
-        voter = self.voter
-        author = self.author
-        permlink = self.permlink
-        
-        r = requests.get(
-                'https://steem-sincerity.dapptools.'
-                'info/s/api/accounts-info/%s,%s'
-                % (voter, author))
-        accounts_info = r.json()['data']
-        
-        # Separate accounts
-        author_info = accounts_info[author]
-        voter_info = accounts_info[voter]
-        
-        # Store dictionary of bot, human and spammer scores
-        author_info = {
-                'bot_score':
-                    author_info['classification_bot_score'],
-                'spam_score':
-                    author_info['classification_spammer_score'],
-                'human_score':
-                    author_info['classification_human_score']
-                }
-        voter_info = {
-                'bot_score':
-                    voter_info['classification_bot_score'],
-                'spam_score':
-                    voter_info['classification_spammer_score'],
-                'human_score':
-                    voter_info['classification_human_score']
-                }
-        
-        # Update dictionaries with new sincerity data
-        self.sincerity_data[author] = author_info
-        self.sincerity_data[voter] = voter_info
-        print(author)
-        print(author_info)
-        print(voter)
-        print(voter_info)
-        
-        # Visual user feedback
-        print("$" + str(usd_reward))
-        print("voter: @%s (%s)" % (voter, self.find_role(voter_info)))
-        print("author: @%s (%s)" % (author, self.find_role(author_info)))
-        print("https://steemit.com/@%s/%s\n" % (author, permlink))
     
     """
     Updates the total revenue from last day votes for the author as well as
@@ -381,6 +286,11 @@ class AbuseDetection:
         permlink = self.permlink
         voters = self.data['voters']
         recievers = self.data['recievers']
+        
+        print('$' + str(usd_reward))
+        print('Author: ' + author)
+        print('Voter: ' + voter)
+        print("https://steemit.com/@%s/%s\n" % (author, permlink))
         
         # update voter records
         if voter in voters:
