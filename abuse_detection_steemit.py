@@ -9,8 +9,7 @@ from make_pie import ProcessData
 from pathlib import Path
 from time import sleep
 from threading import Thread
-import json
-import requests
+import json, requests, os
 
 """
 The abuse detection library gives the user the ability to collect, store
@@ -35,7 +34,7 @@ class AbuseDetection:
             min_usd_reward=0,
             max_time_hours=36,
             certainty=0.5,
-            containing_folder=r''):
+            containing_folder=None):
         # initialise variables
         self.certainty = certainty
         self.min_usd_reward = min_usd_reward
@@ -58,7 +57,7 @@ class AbuseDetection:
         self.bchn = Blockchain(self.s)
         set_shared_steem_instance(self.s)
         
-        self.containing_folder.replace('\\','/')
+        self.containing_folder = os.getcwd()
         if not self.containing_folder.endswith('/'):
             self.containing_folder += '/'
         
@@ -114,12 +113,12 @@ class AbuseDetection:
     
     @return data
     """
-    def db_loader(self, filepath):        
+    def db_loader(self, filepath):
         if Path(filepath).is_file():
             i = open(filepath,"r").read()
             data = json.loads(i)
             return data
-        raise FileNotFoundError('File does not exist.')
+        raise FileNotFoundError('Directory does not exist.')
     
     """
     Saves data to databases
@@ -127,8 +126,10 @@ class AbuseDetection:
     def save(self):
         # Save the data to the files
         for k,v in {
-                self.containing_folder + 'abuse_log.json':self.data,
-                self.containing_folder + 'sincerity_data.json':self.sincerity_data
+                self.containing_folder
+                + 'abuse_log.json':self.data,
+                self.containing_folder
+                + 'sincerity_data.json':self.sincerity_data
                 }.items():
             with open(k, "w") as file:
                 file.write(json.dumps(v))
