@@ -32,7 +32,8 @@ class AbuseDetection:
             self,
             min_usd_reward=0,
             max_time_hours=36,
-            containing_folder=None):
+            containing_folder=None
+            ):
         # initialise variables
         self.min_usd_reward = min_usd_reward
         self.max_time_hours = max_time_hours
@@ -54,7 +55,8 @@ class AbuseDetection:
         self.bchn = Blockchain(self.s)
         set_shared_steem_instance(self.s)
         
-        self.containing_folder = os.getcwd()
+        if not containing_folder:
+            self.containing_folder = os.getcwd()
         if not self.containing_folder.endswith('/'):
             self.containing_folder += '/'
         
