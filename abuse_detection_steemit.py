@@ -32,7 +32,8 @@ class AbuseDetection:
             self,
             min_usd_reward=0,
             max_time_hours=36,
-            containing_folder=None
+            containing_folder=None,
+            data=None
             ):
         # initialise variables
         self.min_usd_reward = min_usd_reward
@@ -60,16 +61,19 @@ class AbuseDetection:
         if not self.containing_folder.endswith('/'):
             self.containing_folder += '/'
         
-        # attempt to load databases
-        try:
-            self.data = self.db_loader(
-                    self.containing_folder + 'abuse_log.json'
-                    )
-        
-        # create new dictionaries in absence of existing databases
-        except:
-            self.data = {'voters':{},"recievers":{}}
-            self.save()
+        if data:
+            self.data = data
+        else:
+            # attempt to load databases
+            try:
+                self.data = self.db_loader(
+                        self.containing_folder + 'abuse_log.json'
+                        )
+            
+            # create new dictionaries in absence of existing databases
+            except:
+                self.data = {'voters':{},"recievers":{}}
+                self.save()
     
     """
     Stream the steem blockchain and sends every vote transaction off to be
@@ -289,7 +293,7 @@ class AbuseDetection:
         voters = self.data['voters']
         recievers = self.data['recievers']
         
-        print('$' + str(usd_reward))
+        print('$' + str(round(usd_reward,3)))
         print('Author: ' + author)
         print('Voter: ' + voter)
         print("https://steemit.com/@%s/%s\n" % (author, permlink))
