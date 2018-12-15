@@ -9,6 +9,7 @@ import tkinter as tk
 import json
 import os
 import operator
+from abuse_detection_steemit import AbuseDetection
 
 class SlveDat(tk.Frame):
     """
@@ -102,7 +103,14 @@ class SlveDat(tk.Frame):
         self.namefilter_entry.grid()
         
         # Startup functions
+        # --- get current path
+        if not path:
+            path = os.getcwd()
+        # --- load the db
         self.db_loader(path=path)
+        # --- start the stream in the background
+        self.ad = AbuseDetection(data=self.data)
+        self.ad.stream()
         
     """
     Populates the listbox with all users in the selected dataset (voters/
@@ -114,7 +122,6 @@ class SlveDat(tk.Frame):
     """
     def populate(self, event=None):
         # Get filtration settings
-        print(event)
         dataset = self.get_dataset()
         order = self.ordering.get()
         filtertext = self.namefilter_entry.get()
@@ -159,16 +166,10 @@ class SlveDat(tk.Frame):
     @param path
     """
     def db_loader(self, path=None):
-        # If no path is specified, get current path
-        if not path:
-            path = os.getcwd()
-        
         try:
             # Load data from databases
-            i = open(path + r'\sincerity_data.json','r').read()
             x = open(path + r'\abuse_log.json', 'r').read()
             # Load data into dictionaries
-            self.sincerity_data = json.loads(i)
             self.data = json.loads(x)
             
             # Update the listbox
