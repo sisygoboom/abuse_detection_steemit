@@ -308,6 +308,7 @@ class AbuseDetection:
             voters[voter]['quantity'] = 1
             voters[voter]['value'] = usd_reward        
         
+        # update reciever records
         if author in recievers:
             # get data for current author
             recieving_author = recievers[author]
@@ -329,8 +330,8 @@ class AbuseDetection:
                 recieving_link['voters'] = list()
             
             # Update total last minute earnings for author
-            recieving_author['total_lme'] += usd_reward
-            recieving_author['total_votes'] += 1
+            recieving_author['value'] += usd_reward
+            recieving_author['quantity'] += 1
             # Add new voter to list
             recieving_link['voters'].append(voter)
         
@@ -339,8 +340,8 @@ class AbuseDetection:
             recievers[author] = dict()
             recieving_author = recievers[author]
             # Populate with necessary information
-            recieving_author['total_lme'] = usd_reward
-            recieving_author['total_votes'] = 1
+            recieving_author['value'] = usd_reward
+            recieving_author['quantity'] = 1
             recieving_author[permlink] = dict()
             recieving_author[permlink]['bal'] = usd_reward
             recieving_author[permlink]['voters'] = [voter]

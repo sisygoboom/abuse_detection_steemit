@@ -106,8 +106,10 @@ class SlveDat(tk.Frame):
         # --- get current path
         if not path:
             path = os.getcwd()
+            
         # --- load the db
         self.db_loader(path=path)
+        
         # --- start the stream in the background
         self.ad = AbuseDetection(data=self.data)
         self.ad.stream()
@@ -143,9 +145,9 @@ class SlveDat(tk.Frame):
                 
                 if dataset == 'recievers':
                     if order == 'Value':
-                        temp_dict[k] = v['total_lme']
+                        temp_dict[k] = v['value']
                     else:
-                        temp_dict[k] = v['total_votes']
+                        temp_dict[k] = v['quantity']
         
         # Order the dictionary
         if order == 'Alphabetic':
@@ -175,8 +177,8 @@ class SlveDat(tk.Frame):
             # Update the listbox
             self.populate()
             
-        except Exception as e:
-            raise e
+        except:
+            self.data = {'voters':{},"recievers":{}}
             
     """
     This procedure is called whenever a user makes a selection in the 
@@ -195,12 +197,12 @@ class SlveDat(tk.Frame):
         # TODO make both datasets use the same keys for $ and #
         # Find the value and quantity of votes cast/recieved by user
         if dataset == 'voters':
-            total_lme = round(self.data[dataset][user]['value'], 3)
+            value = round(self.data[dataset][user]['value'], 3)
             total_lmv = self.data[dataset][user]['quantity']
         
         if dataset == 'recievers':
-            total_lme = round(self.data[dataset][user]['total_lme'], 3)
-            total_lmv = self.data[dataset][user]['total_votes']
+            value = round(self.data[dataset][user]['value'], 3)
+            total_lmv = self.data[dataset][user]['quantity']
         
         # Enable widget editing
         for widget in self.entries:
@@ -213,7 +215,7 @@ class SlveDat(tk.Frame):
         
         # Insert new entries
         self.user_name_label.insert(0, user)
-        self.rcvd_label.insert(0, total_lme)
+        self.rcvd_label.insert(0, value)
         self.lmv_label.insert(0, total_lmv)
         
         # Disable widget editing

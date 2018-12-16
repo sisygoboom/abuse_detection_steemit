@@ -100,9 +100,9 @@ class ProcessData:
             if k not in self.exclude:
                 # Add to dictionaries
                 if val:
-                    incoming_value[k] = round(v['total_lme'], 2)
+                    incoming_value[k] = round(v['value'], 2)
                 if quant:
-                    incoming_votes[k] = v['total_votes']
+                    incoming_votes[k] = v['quantity']
                     
                 
         if quant and val:
