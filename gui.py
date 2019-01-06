@@ -9,6 +9,7 @@ import tkinter as tk
 import json
 import os
 import operator
+import webbrowser
 from abuse_detection_steemit import AbuseDetection
 
 class SlveDat(tk.Frame):
@@ -40,10 +41,14 @@ class SlveDat(tk.Frame):
         self.name_label = tk.Label(self.descrp_frame, text='Username:')
         self.total_rcvd_label = tk.Label(self.descrp_frame, text='Total $:')
         self.total_lmv_label = tk.Label(self.descrp_frame, text='Total #:')
-        # --- variable labels
+        # --- user info
         self.user_name_label = tk.Entry(self.values_frame, width=20)
         self.rcvd_label = tk.Entry(self.values_frame, width=20)
         self.lmv_label = tk.Entry(self.values_frame, width=20)
+        self.account_lookup = tk.Button(self.values_frame,
+                                        text='Account lookup',
+                                        command=self.lookup,
+                                        width=17)
         # --- searching options
         self.perspective_option = tk.OptionMenu(
                 self.filter_frame,
@@ -93,10 +98,11 @@ class SlveDat(tk.Frame):
         self.name_label.pack(side='top', anchor='w')
         self.total_rcvd_label.pack(side='top', anchor='w')
         self.total_lmv_label.pack(side='top', anchor='w')
-        # --- variable labels
+        # --- user info
         self.user_name_label.pack(side='top')
         self.rcvd_label.pack(side='top')
         self.lmv_label.pack(side='top')
+        self.account_lookup.pack(side='top')
         # --- searching options
         self.perspective_option.grid(sticky='news')
         self.order_option.grid(sticky='news')
@@ -135,20 +141,12 @@ class SlveDat(tk.Frame):
         for k, v in self.data[dataset].items():
             # Check if the username cointains the filtertext
             if filtertext.lower() in k:
-                # TODO make both datasets use the same keys for $ and #
                 # Add correct value to temporary list
-                if dataset == 'voters':
-                    if order == 'Value':
-                        temp_dict[k] = v['value']
-                    else:
-                        temp_dict[k] = v['quantity']
-                
-                if dataset == 'recievers':
-                    if order == 'Value':
-                        temp_dict[k] = v['value']
-                    else:
-                        temp_dict[k] = v['quantity']
-        
+                if order == 'Value':
+                    temp_dict[k] = v['value']
+                else:
+                    temp_dict[k] = v['quantity']
+    
         # Order the dictionary
         if order == 'Alphabetic':
             temp_dict = sorted(temp_dict.items(), key=operator.itemgetter(0))
@@ -193,16 +191,9 @@ class SlveDat(tk.Frame):
         user = self.user_browser.get(index[0])
         # Get the dataset to look in
         dataset = self.get_dataset()
-        
-        # TODO make both datasets use the same keys for $ and #
         # Find the value and quantity of votes cast/recieved by user
-        if dataset == 'voters':
-            value = round(self.data[dataset][user]['value'], 3)
-            total_lmv = self.data[dataset][user]['quantity']
-        
-        if dataset == 'recievers':
-            value = round(self.data[dataset][user]['value'], 3)
-            total_lmv = self.data[dataset][user]['quantity']
+        value = round(self.data[dataset][user]['value'], 3)
+        total_lmv = self.data[dataset][user]['quantity']
         
         # Enable widget editing
         for widget in self.entries:
@@ -234,6 +225,11 @@ class SlveDat(tk.Frame):
         dataset = self.abuse_category.get()
         dataset = dataset.lower()
         return dataset
+    
+    def lookup(self):
+        username = self.user_name_label.get()
+        webbrowser.open('https://steemit.com/@' + username + '/')
+        
         
 if __name__ == '__main__':
     root = tk.Tk()
